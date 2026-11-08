@@ -117,6 +117,8 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const effectiveDpr = dpr * zoom;
+  const displayW = Math.round(page.width * zoom);
+  const displayH = Math.round(page.height * zoom);
 
   // Render Background Layer (Layer 0)
   const drawBackground = useCallback(() => {
@@ -297,7 +299,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     }
   }, []);
 
-  // 1. Sync canvas buffer size when width, height, or effectiveDpr genuine change
+  // 1. Sync canvas buffer size and CSS dimensions when width, height, zoom, or effectiveDpr change
   useEffect(() => {
     const targetW = Math.round(page.width * effectiveDpr);
     const targetH = Math.round(page.height * effectiveDpr);
@@ -311,11 +313,16 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     let resized = false;
     canvases.forEach((canvas) => {
       if (!canvas) return;
-      if (canvas.width !== targetW || canvas.height !== targetH) {
+      if (
+        canvas.width !== targetW ||
+        canvas.height !== targetH ||
+        canvas.style.width !== `${displayW}px` ||
+        canvas.style.height !== `${displayH}px`
+      ) {
         canvas.width = targetW;
         canvas.height = targetH;
-        canvas.style.width = `${page.width}px`;
-        canvas.style.height = `${page.height}px`;
+        canvas.style.width = `${displayW}px`;
+        canvas.style.height = `${displayH}px`;
         resized = true;
       }
     });
@@ -326,7 +333,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       drawOverlay();
       clearActiveCanvas();
     }
-  }, [page.width, page.height, effectiveDpr, drawBackground, drawCommittedInks, drawOverlay, clearActiveCanvas]);
+  }, [page.width, page.height, effectiveDpr, displayW, displayH, drawBackground, drawCommittedInks, drawOverlay, clearActiveCanvas]);
 
   // Redraw committed inks when page layers change externally (Undo, Redo, File Open)
   useEffect(() => {
@@ -434,8 +441,10 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
     const isHighlighter = activeTool === 'highlighter';
     const settings = isHighlighter ? highlighterSettings : penSettings;
-    const width = settings.width * (p2.pressure ? p2.pressure * 1.3 : 1.0);
-    ctx.lineWidth = Math.max(0.8, width);
+    const width = settings.width * (p2.pressure ? p2.pressure * 1.2 : 1.0);
+    ctx.lineWidth = Math.max(0.6, width);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
     ctx.beginPath();
     ctx.moveTo(p1.x, p1.y);
@@ -1333,13 +1342,14 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     <div
       className="relative shadow-xl rounded-sm bg-white border border-slate-300 transition-shadow duration-150 hover:shadow-2xl"
       style={{
-        width: `${page.width}px`,
-        height: `${page.height}px`,
+        width: `${displayW}px`,
+        height: `${displayH}px`,
       }}
     >
       {/* Layer 0: Background Canvas (Paper / Grids / PDF) */}
       <canvas
         ref={bgCanvasRef}
+        style={{ width: `${displayW}px`, height: `${displayH}px` }}
         className="absolute inset-0 pointer-events-none rounded-sm"
       />
 
@@ -1347,21 +1357,27 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       {page.background.type === 'pdf' && (
         <div
           ref={pdfTextLayerRef}
-          className="absolute inset-0 select-text overflow-hidden pointer-events-none"
-          style={{ width: `${page.width}px`, height: `${page.height}px` }}
+          className="absolute inset-0 select-text overflow-hidden pointer-events-none origin-top-left"
+          style={{
+            width: `${page.width}px`,
+            height: `${page.height}px`,
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top left',
+          }}
         />
       )}
 
       {/* Layer 1: Committed Inks & Shapes Canvas */}
       <canvas
         ref={inkCanvasRef}
+        style={{ width: `${displayW}px`, height: `${displayH}px` }}
         className="absolute inset-0 pointer-events-none rounded-sm"
       />
 
       {/* Layer 2: Live Inking, Shapes & Marquee Draft Canvas */}
       <canvas
         ref={activeCanvasRef}
-        style={{ touchAction: 'none', cursor: cursorStyle }}
+        style={{ width: `${displayW}px`, height: `${displayH}px`, touchAction: 'none', cursor: cursorStyle }}
         className="absolute inset-0 touch-none rounded-sm"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -1372,6 +1388,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       {/* Layer 3: Selection Bounding Box & Transform Handles */}
       <canvas
         ref={overlayCanvasRef}
+        style={{ width: `${displayW}px`, height: `${displayH}px` }}
         className="absolute inset-0 pointer-events-none rounded-sm"
       />
 
@@ -1411,16 +1428,16 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
           }}
           className="absolute z-30 bg-transparent border border-dashed border-blue-400 focus:outline-none resize-none p-1 shadow-sm rounded"
           style={{
-            left: `${activeTextEditor.x}px`,
-            top: `${activeTextEditor.y}px`,
+            left: `${activeTextEditor.x * zoom}px`,
+            top: `${activeTextEditor.y * zoom}px`,
             fontFamily,
-            fontSize: `${fontSize}px`,
+            fontSize: `${fontSize * zoom}px`,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             textAlign: textAlign,
             color: penSettings.color,
-            minWidth: '150px',
-            minHeight: `${fontSize * 1.5}px`,
+            minWidth: `${150 * zoom}px`,
+            minHeight: `${fontSize * 1.5 * zoom}px`,
           }}
         />
       )}

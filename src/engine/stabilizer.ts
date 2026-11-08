@@ -9,9 +9,9 @@ export interface StabilizerConfig {
 }
 
 export const defaultStabilizerConfig: StabilizerConfig = {
-  enabled: true,
-  deadzoneRadius: 1.2,
-  inertia: 0.35,
+  enabled: false,
+  deadzoneRadius: 0.5,
+  inertia: 0.0,
   cuspDetection: true,
   cuspAngleThresholdDeg: 60,
 };

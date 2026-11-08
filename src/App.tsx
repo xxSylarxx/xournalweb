@@ -21,8 +21,11 @@ interface VirtualPageContainerProps {
 }
 
 const VirtualPageContainer: React.FC<VirtualPageContainerProps> = ({ page, index, total }) => {
+  const zoom = useAppStore((state) => state.zoom);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(index === 0);
+  const displayW = Math.round(page.width * zoom);
+  const displayH = Math.round(page.height * zoom);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -47,8 +50,8 @@ const VirtualPageContainer: React.FC<VirtualPageContainerProps> = ({ page, index
       ref={containerRef}
       className="relative flex flex-col items-center"
       style={{
-        minWidth: `${page.width}px`,
-        minHeight: `${page.height}px`,
+        minWidth: `${displayW}px`,
+        minHeight: `${displayH}px`,
       }}
     >
       {/* Page number badge */}
@@ -61,7 +64,7 @@ const VirtualPageContainer: React.FC<VirtualPageContainerProps> = ({ page, index
       ) : (
         <div
           className="relative shadow-md rounded-sm bg-white/80 border border-slate-300 flex flex-col items-center justify-center text-slate-400 gap-1"
-          style={{ width: `${page.width}px`, height: `${page.height}px` }}
+          style={{ width: `${displayW}px`, height: `${displayH}px` }}
         >
           <div className="text-xs font-mono font-medium text-slate-600">Página {index + 1}</div>
           <div className="text-[10px] text-slate-400">Cargando lienzo al desplazar...</div>
@@ -73,7 +76,6 @@ const VirtualPageContainer: React.FC<VirtualPageContainerProps> = ({ page, index
 
 export const App: React.FC = () => {
   const document = useAppStore((state) => state.document);
-  const zoom = useAppStore((state) => state.zoom);
   const undo = useAppStore((state) => state.undo);
   const redo = useAppStore((state) => state.redo);
   const activeTool = useAppStore((state) => state.activeTool);
@@ -298,13 +300,7 @@ export const App: React.FC = () => {
 
         {/* Scrollable Viewport for Document Pages */}
         <main className="flex-1 overflow-auto bg-slate-200/90 flex flex-col items-center py-8 px-4 relative">
-          <div
-            className="flex flex-col items-center gap-8 origin-top"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top center',
-            }}
-          >
+          <div className="flex flex-col items-center gap-8">
             {viewMode === 'paired' ? (
               <div className="flex flex-col items-center gap-8">
                 {(() => {

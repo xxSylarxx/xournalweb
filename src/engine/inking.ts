@@ -96,6 +96,7 @@ export function renderStroke(
         opacity?: number;
         shapeType?: string;
         lineStyle?: any;
+        capStyle?: any;
         fill?: string;
         fillOpacity?: number;
       }
@@ -156,16 +157,49 @@ export function renderStroke(
     return;
   }
 
-  // Smooth pressure-sensitive polygon
-  const outline = getStrokeOutline(stroke.points, {
-    size: stroke.width,
-    thinning: isHighlighter ? 0.05 : 0.5,
-    smoothing: 0.4,
-    streamline: 0.15, // Immediate response
-    simulatePressure: stroke.points.every((p) => p.pressure === 0.5 || p.pressure === 0),
-  });
+  const pts = stroke.points;
+  ctx.lineCap = (stroke.capStyle as CanvasLineCap) || 'round';
+  ctx.lineJoin = 'round';
 
-  drawOutlineDirect(ctx, outline);
+  const hasPressure = pts.some(
+    (p) => p.pressure !== undefined && p.pressure !== 0.5 && p.pressure > 0
+  );
+
+  if (hasPressure && !isHighlighter) {
+    // Exact Xournal++ pressure-sensitive rendering with smooth segment thickness
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const press = (p1.pressure ?? 0.5) * 1.2;
+      ctx.lineWidth = Math.max(0.6, stroke.width * press);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+  } else {
+    // Exact Xournal++ smooth Catmull-Rom / midpoint Bezier vector inking
+    ctx.lineWidth = stroke.width;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      const p1 = pts[i - 1];
+      const p2 = pts[i];
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+    }
+    const last = pts[pts.length - 1];
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
+  }
+
+  // Handle shape fill if any
+  if (stroke.fill && stroke.fill !== 'none') {
+    ctx.fillStyle = stroke.fill;
+    ctx.globalAlpha = stroke.fillOpacity ?? 0.35;
+    ctx.fill();
+  }
 
   ctx.restore();
 }
