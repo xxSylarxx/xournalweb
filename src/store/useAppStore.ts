@@ -15,6 +15,7 @@ import {
   createAddStrokeCommand,
   createDeleteStrokesCommand,
   createUpdateStrokesCommand,
+  createReplaceStrokesCommand,
 } from '../engine/history';
 import { translateStroke, scaleStroke, rotateStroke, getStrokeBoundingBox } from '../engine/shapes';
 import { clearPdfCache } from '../engine/pdfRenderer';
@@ -168,6 +169,7 @@ interface AppState {
   // Drawing strokes
   addStroke: (stroke: Stroke) => void;
   deleteStrokes: (deleted: { stroke: Stroke; index: number }[]) => void;
+  replaceStrokes: (removed: { stroke: Stroke; index: number }[], added: Stroke[]) => void;
   clearActivePage: () => void;
 
   // Layer management
@@ -541,6 +543,23 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!layer) return;
 
       const cmd = createDeleteStrokesCommand(layer.strokes, deleted, () => {
+        const updatedDoc = createUpdatedDocument(get().document, activePageIndex, activeLayerIndex, layer.strokes);
+        set({ document: updatedDoc });
+        saveDraftToStorage(updatedDoc);
+      });
+
+      history.execute(cmd);
+    },
+
+    replaceStrokes: (removed, added) => {
+      if (removed.length === 0 && added.length === 0) return;
+      const { document, activePageIndex, activeLayerIndex, history } = get();
+      const page = document.pages[activePageIndex];
+      if (!page) return;
+      const layer = page.layers[activeLayerIndex];
+      if (!layer) return;
+
+      const cmd = createReplaceStrokesCommand(layer.strokes, removed, added, () => {
         const updatedDoc = createUpdatedDocument(get().document, activePageIndex, activeLayerIndex, layer.strokes);
         set({ document: updatedDoc });
         saveDraftToStorage(updatedDoc);

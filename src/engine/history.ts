@@ -151,3 +151,42 @@ export function createUpdateStrokesCommand(
     },
   };
 }
+
+/**
+ * Creates a command for replacing strokes (e.g. splitting or partially erasing strokes).
+ * Removes old strokes and inserts new sub-strokes in their place.
+ */
+export function createReplaceStrokesCommand(
+  strokesList: Stroke[],
+  removedStrokes: { stroke: Stroke; index: number }[],
+  insertedStrokes: Stroke[],
+  onUpdate: () => void
+): Command {
+  return {
+    name: 'Erase / Split Strokes',
+    execute: () => {
+      const removedIds = new Set(removedStrokes.map((r) => r.stroke.id));
+      const remaining = strokesList.filter((s) => !removedIds.has(s.id));
+      strokesList.length = 0;
+      strokesList.push(...remaining, ...insertedStrokes);
+      onUpdate();
+    },
+    undo: () => {
+      const insertedIds = new Set(insertedStrokes.map((s) => s.id));
+      const remaining = strokesList.filter((s) => !insertedIds.has(s.id));
+      strokesList.length = 0;
+      strokesList.push(...remaining);
+      // Reinsert removed strokes sorted by original index
+      const sorted = [...removedStrokes].sort((a, b) => a.index - b.index);
+      for (const item of sorted) {
+        if (item.index <= strokesList.length) {
+          strokesList.splice(item.index, 0, item.stroke);
+        } else {
+          strokesList.push(item.stroke);
+        }
+      }
+      onUpdate();
+    },
+  };
+}
+

@@ -659,12 +659,12 @@ export const Toolbar: React.FC = () => {
             <Sparkles className="w-4 h-4" />
           </button>
 
-          {/* Selector de modo borrador: Trazo vs Whiteout */}
+          {/* Selector de modo borrador: Trazo vs Estándar */}
           {activeTool === 'eraser' && (
             <div className="flex items-center bg-slate-800/90 rounded border border-slate-700 p-0.5 text-[10px] gap-0.5">
               <button
                 onClick={() => setEraserType('stroke')}
-                title="Borrador de Trazo"
+                title="Borrador de Trazo (Elimina el trazo completo al tocarlo)"
                 className={`px-1.5 py-0.5 rounded transition-all ${
                   eraserType === 'stroke'
                     ? 'bg-blue-600 text-white font-semibold shadow-sm'
@@ -674,15 +674,15 @@ export const Toolbar: React.FC = () => {
                 Trazo
               </button>
               <button
-                onClick={() => setEraserType('whiteout')}
-                title="Borrador Whiteout (Tipp-Ex)"
+                onClick={() => setEraserType('standard')}
+                title="Borrador Estándar (Borra con precisión sin pintar blanco sobre el fondo)"
                 className={`px-1.5 py-0.5 rounded transition-all ${
-                  eraserType === 'whiteout'
+                  eraserType === 'standard' || eraserType === 'whiteout'
                     ? 'bg-blue-600 text-white font-semibold shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Whiteout
+                Estándar
               </button>
             </div>
           )}

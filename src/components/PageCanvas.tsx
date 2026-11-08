@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Page, Point, Stroke, ShapeType } from '../types/document';
 import { useAppStore } from '../store/useAppStore';
 import { renderBackground } from '../engine/backgroundRenderer';
-import { renderStroke, isPointNearStroke } from '../engine/inking';
+import { renderStroke, isPointNearStroke, splitStrokeByEraserPath } from '../engine/inking';
 import {
   renderShape,
   getStrokesBoundingBox,
@@ -64,6 +64,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
   const addStroke = useAppStore((state) => state.addStroke);
   const deleteStrokes = useAppStore((state) => state.deleteStrokes);
+  const replaceStrokes = useAppStore((state) => state.replaceStrokes);
   const setActivePage = useAppStore((state) => state.setActivePage);
   const zoom = useAppStore((state) => state.zoom);
 
@@ -115,6 +116,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
   const resizeHandleIndexRef = useRef<number>(-1);
 
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const effectiveDpr = dpr * zoom;
 
   // Render Background Layer (Layer 0)
   const drawBackground = useCallback(() => {
@@ -125,7 +127,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       getPdfDocumentProxy(pdfFileBuffer)
         .then((pdfDoc) => {
           if (canvas) {
-            renderPdfPageToCanvas(pdfDoc, page.background.pdfPageIndex!, canvas, dpr);
+            renderPdfPageToCanvas(pdfDoc, page.background.pdfPageIndex!, canvas, effectiveDpr);
           }
           if (pdfTextLayerRef.current) {
             renderPdfTextLayer(pdfDoc, page.background.pdfPageIndex!, pdfTextLayerRef.current, page.width, page.height);
@@ -141,10 +143,10 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     if (!ctx) return;
 
     ctx.save();
-    ctx.scale(dpr, dpr);
+    ctx.scale(effectiveDpr, effectiveDpr);
     renderBackground(ctx, page.width, page.height, page.background);
     ctx.restore();
-  }, [dpr, page.width, page.height, page.background, pdfFileBuffer]);
+  }, [effectiveDpr, page.width, page.height, page.background, pdfFileBuffer]);
 
   // Render Committed Strokes & Texts Layer (Layer 1)
   const drawCommittedInks = useCallback(() => {
@@ -155,7 +157,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(dpr, dpr);
+    ctx.scale(effectiveDpr, effectiveDpr);
 
     for (const layer of page.layers) {
       if (!layer.visible) continue;
@@ -190,7 +192,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
               const cx = c?.getContext('2d');
               if (cx) {
                 cx.save();
-                cx.scale(dpr, dpr);
+                cx.scale(effectiveDpr, effectiveDpr);
                 cx.drawImage(img, imgItem.x, imgItem.y, imgItem.width, imgItem.height);
                 cx.restore();
               }
@@ -201,7 +203,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     }
 
     ctx.restore();
-  }, [dpr, page.layers]);
+  }, [effectiveDpr, page.layers]);
 
   // Render Selection & Handles Overlay (Layer 3)
   const drawOverlay = useCallback(() => {
@@ -222,7 +224,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     if (!box) return;
 
     ctx.save();
-    ctx.scale(dpr, dpr);
+    ctx.scale(effectiveDpr, effectiveDpr);
 
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 1.5;
@@ -276,16 +278,16 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     // Render Geometry Tools Overlay (Setsquare or Compass)
     if (geometryTool === 'setsquare') {
       ctx.save();
-      ctx.scale(dpr, dpr);
+      ctx.scale(effectiveDpr, effectiveDpr);
       renderSetsquare(ctx, setsquareState);
       ctx.restore();
     } else if (geometryTool === 'compass') {
       ctx.save();
-      ctx.scale(dpr, dpr);
+      ctx.scale(effectiveDpr, effectiveDpr);
       renderCompass(ctx, compassState);
       ctx.restore();
     }
-  }, [dpr, selectedStrokeIds, page.layers, geometryTool, setsquareState, compassState]);
+  }, [effectiveDpr, selectedStrokeIds, page.layers, geometryTool, setsquareState, compassState]);
 
   const clearActiveCanvas = useCallback(() => {
     const canvas = activeCanvasRef.current;
@@ -295,11 +297,10 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     }
   }, []);
 
-  // 1. Sync canvas buffer size ONLY when width, height, or dpr genuine change
-  // NEVER attach drawCommittedInks or other callbacks here, to prevent GPU texture reallocations!
+  // 1. Sync canvas buffer size when width, height, or effectiveDpr genuine change
   useEffect(() => {
-    const targetW = Math.round(page.width * dpr);
-    const targetH = Math.round(page.height * dpr);
+    const targetW = Math.round(page.width * effectiveDpr);
+    const targetH = Math.round(page.height * effectiveDpr);
     const canvases = [
       bgCanvasRef.current,
       inkCanvasRef.current,
@@ -325,7 +326,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       drawOverlay();
       clearActiveCanvas();
     }
-  }, [page.width, page.height, dpr, drawBackground, drawCommittedInks, drawOverlay, clearActiveCanvas]);
+  }, [page.width, page.height, effectiveDpr, drawBackground, drawCommittedInks, drawOverlay, clearActiveCanvas]);
 
   // Redraw committed inks when page layers change externally (Undo, Redo, File Open)
   useEffect(() => {
@@ -450,7 +451,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(dpr, dpr);
+    ctx.scale(effectiveDpr, effectiveDpr);
 
     const pts = currentPointsRef.current;
     if (pts.length >= 2) {
@@ -482,7 +483,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(dpr, dpr);
+    ctx.scale(effectiveDpr, effectiveDpr);
 
     const minX = Math.min(start.x, current.x);
     const minY = Math.min(start.y, current.y);
@@ -508,7 +509,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(dpr, dpr);
+    ctx.scale(effectiveDpr, effectiveDpr);
 
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 1.5;
@@ -556,7 +557,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       const prefs = useAppStore.getState().preferences;
       const action = prefs?.stylusButtonAction || 'eraser';
       if (action === 'eraser') {
-        interactionModeRef.current = eraserType === 'whiteout' ? 'whiteout' : 'erase';
+        interactionModeRef.current = 'erase';
         return;
       } else if (action === 'select') {
         interactionModeRef.current = 'selectBox';
@@ -654,32 +655,30 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     }
 
     if (activeTool === 'eraser') {
-      if (eraserType === 'whiteout') {
-        interactionModeRef.current = 'whiteout';
-        if (canvas) {
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            activeCtxRef.current = ctx;
-            ctx.save();
-            ctx.scale(dpr, dpr);
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#ffffff';
-            ctx.fillStyle = '#ffffff';
-            ctx.globalAlpha = 1.0;
-            ctx.lineWidth = eraserWidth;
+      interactionModeRef.current = 'erase';
+      currentPointsRef.current = [startPt];
 
-            ctx.beginPath();
-            ctx.arc(startPt.x, startPt.y, eraserWidth / 2, 0, Math.PI * 2);
-            ctx.fill();
+      if (eraserType === 'stroke') {
+        handleEraserAction(startPt.x, startPt.y);
+      } else {
+        // Standard non-destructive eraser: clear ink pixels on inkCanvas with 0ms latency
+        const inkCanvas = inkCanvasRef.current;
+        if (inkCanvas) {
+          const inkCtx = inkCanvas.getContext('2d');
+          if (inkCtx) {
+            inkCtx.save();
+            inkCtx.scale(effectiveDpr, effectiveDpr);
+            inkCtx.globalCompositeOperation = 'destination-out';
+            inkCtx.lineCap = 'round';
+            inkCtx.lineJoin = 'round';
+            inkCtx.beginPath();
+            inkCtx.arc(startPt.x, startPt.y, eraserWidth / 2, 0, Math.PI * 2);
+            inkCtx.fill();
+            inkCtx.restore();
           }
         }
-        return;
-      } else {
-        interactionModeRef.current = 'erase';
-        handleEraserAction(startPt.x, startPt.y);
-        return;
       }
+      return;
     }
 
     // Set up direct GPU context once on pointerdown for drawing
@@ -691,7 +690,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
         if (ctx) {
           activeCtxRef.current = ctx;
           ctx.save();
-          ctx.scale(dpr, dpr);
+          ctx.scale(effectiveDpr, effectiveDpr);
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
 
@@ -842,7 +841,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.save();
-          ctx.scale(dpr, dpr);
+          ctx.scale(effectiveDpr, effectiveDpr);
 
           // Horizontal divider line
           ctx.strokeStyle = '#ef4444';
@@ -982,23 +981,36 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
       if (interactionModeRef.current === 'draw') {
         drawLiveSegment(prevPt, pt);
-      } else if (interactionModeRef.current === 'whiteout') {
-        const ctx = activeCtxRef.current;
-        if (ctx) {
-          ctx.lineWidth = eraserWidth;
-          ctx.beginPath();
-          ctx.moveTo(prevPt.x, prevPt.y);
-          ctx.lineTo(pt.x, pt.y);
-          ctx.stroke();
-        }
       } else if (interactionModeRef.current === 'erase') {
-        handleEraserAction(pt.x, pt.y);
+        if (eraserType === 'stroke') {
+          handleEraserAction(pt.x, pt.y);
+        } else {
+          // Standard / continuous eraser: clear ink in real-time with destination-out without painting white
+          const inkCanvas = inkCanvasRef.current;
+          if (inkCanvas) {
+            const inkCtx = inkCanvas.getContext('2d');
+            if (inkCtx) {
+              inkCtx.save();
+              inkCtx.scale(effectiveDpr, effectiveDpr);
+              inkCtx.globalCompositeOperation = 'destination-out';
+              inkCtx.lineCap = 'round';
+              inkCtx.lineJoin = 'round';
+              inkCtx.lineWidth = eraserWidth;
+              inkCtx.beginPath();
+              inkCtx.moveTo(prevPt.x, prevPt.y);
+              inkCtx.lineTo(pt.x, pt.y);
+              inkCtx.stroke();
+              inkCtx.restore();
+            }
+          }
+        }
       }
     }
   };
 
   const handleEraserAction = (px: number, py: number) => {
-    const activeLayer = page.layers[0];
+    const layerIdx = useAppStore.getState().activeLayerIndex;
+    const activeLayer = page.layers[layerIdx] || page.layers[0];
     if (!activeLayer) return;
 
     let hasNewErased = false;
@@ -1019,7 +1031,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
-      ctx.scale(dpr, dpr);
+      ctx.scale(effectiveDpr, effectiveDpr);
 
       for (const stroke of activeLayer.strokes) {
         if (!erasedStrokesMapRef.current.has(stroke.id)) {
@@ -1071,41 +1083,6 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     }
 
     if (interactionModeRef.current === 'rotateSelection') {
-      return;
-    }
-
-    if (interactionModeRef.current === 'whiteout') {
-      const points = currentPointsRef.current;
-      if (points.length > 0) {
-        const whiteoutStroke: Stroke = {
-          id: `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          tool: 'pen',
-          color: '#ffffff',
-          width: eraserWidth,
-          points: [...points],
-          opacity: 1.0,
-          shapeType: 'freehand',
-          lineStyle: 'plain',
-          capStyle: 'round',
-        };
-
-        const inkCanvas = inkCanvasRef.current;
-        if (inkCanvas) {
-          const inkCtx = inkCanvas.getContext('2d');
-          if (inkCtx) {
-            inkCtx.save();
-            inkCtx.scale(dpr, dpr);
-            renderStroke(inkCtx, whiteoutStroke);
-            inkCtx.restore();
-          }
-        }
-
-        clearActiveCanvas();
-        addStroke(whiteoutStroke);
-      } else {
-        clearActiveCanvas();
-      }
-      currentPointsRef.current = [];
       return;
     }
 
@@ -1186,7 +1163,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
             const inkCtx = inkCanvas.getContext('2d');
             if (inkCtx) {
               inkCtx.save();
-              inkCtx.scale(dpr, dpr);
+              inkCtx.scale(effectiveDpr, effectiveDpr);
               renderStroke(inkCtx, newStroke);
               inkCtx.restore();
             }
@@ -1249,7 +1226,7 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
           const inkCtx = inkCanvas.getContext('2d');
           if (inkCtx) {
             inkCtx.save();
-            inkCtx.scale(dpr, dpr);
+            inkCtx.scale(effectiveDpr, effectiveDpr);
             renderStroke(inkCtx, newStroke);
             inkCtx.restore();
           }
@@ -1264,10 +1241,43 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
         clearActiveCanvas();
       }
     } else if (activeTool === 'eraser') {
-      if (erasedStrokesMapRef.current.size > 0) {
-        const deletedArray = Array.from(erasedStrokesMapRef.current.values());
-        deleteStrokes(deletedArray);
+      if (eraserType === 'stroke') {
+        if (erasedStrokesMapRef.current.size > 0) {
+          const deletedArray = Array.from(erasedStrokesMapRef.current.values());
+          deleteStrokes(deletedArray);
+        }
+      } else {
+        // Standard precise eraser: split/prune strokes geometrically without drawing white
+        const points = currentPointsRef.current;
+        if (points.length > 0) {
+          const layerIdx = useAppStore.getState().activeLayerIndex;
+          const activeLayer = page.layers[layerIdx] || page.layers[0];
+          if (activeLayer) {
+            const removed: { stroke: Stroke; index: number }[] = [];
+            const added: Stroke[] = [];
+
+            activeLayer.strokes.forEach((stroke, index) => {
+              const subStrokes = splitStrokeByEraserPath(stroke, points, eraserWidth / 2);
+              const wasModified =
+                subStrokes.length !== 1 ||
+                subStrokes[0].points.length !== stroke.points.length;
+
+              if (wasModified) {
+                removed.push({ stroke, index });
+                added.push(...subStrokes);
+              }
+            });
+
+            if (removed.length > 0) {
+              replaceStrokes(removed, added);
+            } else {
+              // Redraw committed inks in case pixels were cleared via destination-out but no strokes modified
+              drawCommittedInks();
+            }
+          }
+        }
       }
+      clearActiveCanvas();
     }
 
     currentPointsRef.current = [];

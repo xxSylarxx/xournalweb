@@ -216,3 +216,117 @@ function distanceSqToSegment(px: number, py: number, x1: number, y1: number, x2:
   return dX * dX + dY * dY;
 }
 
+/**
+ * Splits or truncates a stroke based on an eraser path.
+ * If the stroke is unaffected, returns [stroke].
+ * If the stroke is completely erased, returns [].
+ * If the stroke is partially erased, returns the remaining sub-strokes.
+ */
+export function splitStrokeByEraserPath(
+  stroke: Stroke,
+  eraserPath: Point[],
+  eraserRadius: number
+): Stroke[] {
+  const points = stroke.points;
+  if (points.length === 0) return [];
+  if (eraserPath.length === 0) return [stroke];
+
+  // 1. Densify points so that no segment between consecutive points is longer than maxStep
+  const maxStep = Math.max(3, eraserRadius / 3);
+  const densePoints: Point[] = [];
+
+  for (let i = 0; i < points.length; i++) {
+    densePoints.push(points[i]);
+    if (i < points.length - 1) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      if (dist > maxStep) {
+        const steps = Math.ceil(dist / maxStep);
+        for (let s = 1; s < steps; s++) {
+          const t = s / steps;
+          densePoints.push({
+            x: p1.x + t * (p2.x - p1.x),
+            y: p1.y + t * (p2.y - p1.y),
+            pressure: (p1.pressure ?? 0.5) + t * ((p2.pressure ?? 0.5) - (p1.pressure ?? 0.5)),
+          });
+        }
+      }
+    }
+  }
+
+  // 2. Identify which points in densePoints are erased
+  const threshold = eraserRadius + stroke.width / 4;
+  const thresholdSq = threshold * threshold;
+
+  const isErased: boolean[] = new Array(densePoints.length);
+  let anyErased = false;
+  let allErased = true;
+
+  for (let i = 0; i < densePoints.length; i++) {
+    const pt = densePoints[i];
+    let erased = false;
+    for (let e = 0; e < eraserPath.length; e++) {
+      const e1 = eraserPath[e];
+      const e2 = eraserPath[e + 1] || e1;
+      if (distanceSqToSegment(pt.x, pt.y, e1.x, e1.y, e2.x, e2.y) <= thresholdSq) {
+        erased = true;
+        break;
+      }
+    }
+    isErased[i] = erased;
+    if (erased) anyErased = true;
+    else allErased = false;
+  }
+
+  if (!anyErased) return [stroke];
+  if (allErased) return [];
+
+  // 3. Group remaining points into runs of sub-strokes
+  const subStrokes: Stroke[] = [];
+  let currentRun: Point[] = [];
+
+  for (let i = 0; i < densePoints.length; i++) {
+    if (!isErased[i]) {
+      currentRun.push(densePoints[i]);
+    } else {
+      if (currentRun.length >= 2) {
+        subStrokes.push({
+          ...stroke,
+          id: `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          points: currentRun,
+          shapeType: 'freehand',
+        });
+      } else if (currentRun.length === 1 && densePoints.length < 5) {
+        // Keep solitary point for tiny strokes/dots
+        subStrokes.push({
+          ...stroke,
+          id: `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          points: [currentRun[0], { ...currentRun[0], x: currentRun[0].x + 0.1 }],
+          shapeType: 'freehand',
+        });
+      }
+      currentRun = [];
+    }
+  }
+
+  if (currentRun.length >= 2) {
+    subStrokes.push({
+      ...stroke,
+      id: `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      points: currentRun,
+      shapeType: 'freehand',
+    });
+  } else if (currentRun.length === 1 && densePoints.length < 5) {
+    subStrokes.push({
+      ...stroke,
+      id: `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      points: [currentRun[0], { ...currentRun[0], x: currentRun[0].x + 0.1 }],
+      shapeType: 'freehand',
+    });
+  }
+
+  return subStrokes;
+}
+
+
