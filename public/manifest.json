@@ -1,0 +1,17 @@
+{
+  "name": "Xournal++ Web",
+  "short_name": "Xournal++",
+  "description": "Aplicación de toma de notas manuscritas y anotación de PDF de alto rendimiento con paridad completa de escritorio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/xournalpp.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
+
