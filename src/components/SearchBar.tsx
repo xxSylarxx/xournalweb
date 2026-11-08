@@ -96,7 +96,7 @@ export const SearchBar: React.FC = () => {
   if (!isSearchOpen) return null;
 
   return (
-    <div className="absolute top-16 right-6 z-50 flex items-center bg-slate-900 border border-slate-700 shadow-2xl rounded-lg p-1.5 gap-2 text-slate-200 text-xs animate-fadeIn">
+    <div className="absolute top-16 right-2 sm:right-6 max-w-[calc(100vw-1rem)] z-50 flex items-center bg-slate-900 border border-slate-700 shadow-2xl rounded-lg p-1.5 gap-2 text-slate-200 text-xs animate-fadeIn">
       <div className="flex items-center gap-1.5 pl-1.5">
         <Search className="w-3.5 h-3.5 text-slate-400" />
         <input

@@ -68,6 +68,7 @@ export const Toolbar: React.FC = () => {
   const [isShapesMenuOpen, setIsShapesMenuOpen] = useState(false);
   const [isLineStyleMenuOpen, setIsLineStyleMenuOpen] = useState(false);
   const [isCapStyleMenuOpen, setIsCapStyleMenuOpen] = useState(false);
+  const [isBackgroundMenuOpen, setIsBackgroundMenuOpen] = useState(false);
 
   const activeTool = useAppStore((state) => state.activeTool);
   const setActiveTool = useAppStore((state) => state.setActiveTool);
@@ -279,645 +280,687 @@ export const Toolbar: React.FC = () => {
   };
 
   return (
-    <header className="h-14 bg-slate-900 border-b border-slate-800 text-slate-100 flex items-center justify-between px-3 shrink-0 shadow-md select-none z-30">
-      {/* Brand & Document Name */}
-      <div className="flex items-center gap-2 pr-3 border-r border-slate-800">
-        <img src="/xournalpp.svg" alt="Xournal++ Logo" className="w-7 h-7 drop-shadow" />
-        <div className="flex flex-col">
-          <span className="font-bold tracking-wide text-xs hidden sm:inline text-slate-200">
-            Xournal<span className="text-blue-400">++</span> Web
-          </span>
+    <header className="bg-slate-900 border-b border-slate-800 text-slate-100 flex flex-col shrink-0 shadow-md select-none z-30">
+      {/* ── FILA 1: Archivo, Navegación de Páginas, Zoom, Vistas y Configuración ── */}
+      <div className="h-10 px-3 flex items-center justify-between border-b border-slate-800/80 text-xs relative z-20">
+        {/* Izquierda: Logo + Título + Archivo + Deshacer/Rehacer */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 pr-2 border-r border-slate-800">
+            <img src="/xournalpp.svg" alt="Xournal++ Logo" className="w-5 h-5 drop-shadow" />
+            <span className="font-bold tracking-wide text-xs hidden sm:inline text-slate-200">
+              Xournal<span className="text-blue-400">++</span>
+            </span>
+            <input
+              type="text"
+              value={document.title}
+              onChange={(e) => setDocumentTitle(e.target.value)}
+              className="bg-transparent text-[11px] text-slate-400 hover:text-slate-200 focus:text-white border-none focus:outline-none focus:ring-0 p-0 max-w-[120px] truncate ml-1"
+              title="Editar nombre del documento"
+            />
+          </div>
+
+          {/* Archivo: Abrir, PDF, Guardar, Exportar */}
           <input
-            type="text"
-            value={document.title}
-            onChange={(e) => setDocumentTitle(e.target.value)}
-            className="bg-transparent text-[11px] text-slate-400 hover:text-slate-200 focus:text-white border-none focus:outline-none focus:ring-0 p-0 max-w-[100px] truncate"
-            title="Editar nombre del documento"
+            ref={fileInputRef}
+            type="file"
+            accept=".xopp,.xoj"
+            className="hidden"
+            onChange={handleOpenFile}
           />
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={handleOpenPdf}
+          />
+
+          <button
+            onClick={handleOpenXoppPicker}
+            title="Abrir archivo .xopp"
+            className="flex items-center gap-1 px-2 py-1 rounded text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+            <span>Abrir</span>
+          </button>
+
+          <button
+            onClick={() => pdfInputRef.current?.click()}
+            title="Anotar archivo PDF"
+            className="flex items-center gap-1 px-2 py-1 rounded text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+          >
+            <FileText className="w-3.5 h-3.5 text-red-400" />
+            <span>PDF</span>
+          </button>
+
+          <button
+            onClick={handleSaveFile}
+            title="Guardar archivo .xopp"
+            className="flex items-center gap-1 px-2 py-1 rounded text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+          >
+            <Download className="w-3.5 h-3.5 text-green-400" />
+            <span>Guardar</span>
+          </button>
+
+          <button
+            onClick={toggleExportModal}
+            title="Exportación avanzada (PDF, PNG, SVG con opciones de rango y DPI)"
+            className="flex items-center gap-1 px-2 py-1 rounded text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+          >
+            <FileDown className="w-3.5 h-3.5 text-blue-400" />
+            <span>Exportar</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-slate-800 mx-1" />
+
+          {/* Deshacer / Rehacer */}
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            title="Deshacer (Ctrl+Z)"
+            className="p-1 rounded text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            title="Rehacer (Ctrl+Y)"
+            className="p-1 rounded text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Derecha: Fondo, Páginas, Zoom, Historial, Vistas, Preferencias */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Fondo de página */}
+          {currentPage && (
+            <div className="relative">
+              <button
+                onClick={() => setIsBackgroundMenuOpen(!isBackgroundMenuOpen)}
+                title="Cambiar fondo de página"
+                className={`flex items-center gap-1 p-1 rounded transition-all ${
+                  isBackgroundMenuOpen ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Grid className="w-3.5 h-3.5" />
+              </button>
+              {isBackgroundMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsBackgroundMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[160px] z-50 animate-fadeIn">
+                    <span className="text-[10px] uppercase text-slate-400 px-2 py-1 font-bold">Fondo de página</span>
+                    {[
+                      { id: 'lined', label: 'Rayado' },
+                      { id: 'graph', label: 'Cuadriculado' },
+                      { id: 'dotted', label: 'Puntos' },
+                      { id: 'plain', label: 'En blanco' },
+                      { id: 'isodotted', label: 'Isométrico (Puntos)' },
+                      { id: 'isograph', label: 'Isométrico (Líneas)' },
+                      { id: 'staves', label: 'Pentagrama Musical' },
+                    ].map((bg) => (
+                      <button
+                        key={bg.id}
+                        onClick={() => {
+                          setPageBackground(activePageIndex, bg.id as PageBackgroundType);
+                          setIsBackgroundMenuOpen(false);
+                        }}
+                        className={`text-left text-xs px-2 py-1.5 rounded hover:bg-slate-700 ${
+                          currentPage.background.type === bg.id ? 'text-blue-400 font-semibold bg-slate-700/60' : 'text-slate-200'
+                        }`}
+                      >
+                        {bg.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Configuración de plantilla */}
+          <button
+            onClick={togglePageSettingsModal}
+            title="Configuración de tamaño de papel y plantilla"
+            className="p-1 rounded text-slate-300 hover:bg-slate-800 hover:text-blue-400 transition-all"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Limpiar Página */}
+          <button
+            onClick={clearActivePage}
+            title="Limpiar página actual"
+            className="p-1 rounded text-slate-400 hover:bg-red-500/20 hover:text-red-400 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* + Página */}
+          <button
+            onClick={() => addNewPage(currentPage?.background.type || 'lined')}
+            title="Añadir nueva página"
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 transition-all border border-slate-700"
+          >
+            <FilePlus className="w-3 h-3 text-blue-400" />
+            <span>+ Pág</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-slate-800 mx-1" />
+
+          {/* Zoom */}
+          <div className="flex items-center gap-0.5 bg-slate-800/80 rounded border border-slate-700 px-1 py-0.5">
+            <button
+              onClick={() => setZoom(zoom - 0.1)}
+              title="Reducir zoom"
+              className="p-0.5 hover:text-white text-slate-400 rounded"
+            >
+              <ZoomOut className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setZoom(1.0)}
+              title="Restablecer zoom a 100%"
+              className="text-[11px] px-1 text-slate-300 font-mono hover:text-white"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={() => setZoom(zoom + 0.1)}
+              title="Aumentar zoom"
+              className="p-0.5 hover:text-white text-slate-400 rounded"
+            >
+              <ZoomIn className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setZoom(1.0)}
+              title="Restablecer vista"
+              className="p-0.5 hover:text-white text-slate-400 rounded ml-0.5"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+            </button>
+          </div>
+
+          <div className="h-4 w-[1px] bg-slate-800 mx-1" />
+
+          {/* Historial de navegación */}
+          <div className="flex items-center bg-slate-800/60 rounded border border-slate-700 p-0.5 gap-0.5">
+            <button
+              onClick={jumpBack}
+              title="Historial: Página anterior visitada (Alt+←)"
+              className="p-0.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+            >
+              <ChevronLeft className="w-3 h-3" />
+            </button>
+            <button
+              onClick={jumpForward}
+              title="Historial: Página siguiente visitada (Alt+→)"
+              className="p-0.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+            >
+              <ChevronRight className="w-3 h-3" />
+            </button>
+            <button
+              onClick={jumpToPrevAnnotatedPage}
+              title="Saltar a página anterior con notas"
+              className="p-0.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+            >
+              <SkipBack className="w-3 h-3" />
+            </button>
+            <button
+              onClick={jumpToNextAnnotatedPage}
+              title="Saltar a siguiente página con notas"
+              className="p-0.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+            >
+              <SkipForward className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="h-4 w-[1px] bg-slate-800 mx-1" />
+
+          {/* Vistas: Paired Pages & Modo Presentación */}
+          <button
+            onClick={toggleViewMode}
+            title={viewMode === 'paired' ? 'Vista: 2 páginas emparejadas (Libro)' : 'Vista: 1 sola página vertical'}
+            className={`p-1 rounded text-xs transition-all ${
+              viewMode === 'paired'
+                ? 'bg-blue-600/30 text-blue-400 ring-1 ring-blue-500'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <Columns2 className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={togglePresentationMode}
+            title="Modo Presentación (F5)"
+            className={`p-1 rounded text-xs transition-all ${
+              isPresentationMode
+                ? 'bg-amber-600/30 text-amber-300 ring-1 ring-amber-500'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <Presentation className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Grabador de Audio */}
+          <button
+            onClick={toggleAudioRecorder}
+            title="Nota de voz para esta página"
+            className={`p-1 rounded text-xs transition-all ${
+              isAudioRecorderOpen
+                ? 'bg-red-600/30 text-red-400 ring-1 ring-red-500'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Plugins */}
+          <button
+            onClick={togglePluginsModal}
+            title="Plugins y Complementos JavaScript"
+            className="p-1 rounded text-slate-400 hover:bg-slate-800 hover:text-purple-400 transition-all"
+          >
+            <Puzzle className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Preferencias */}
+          <button
+            onClick={togglePreferences}
+            title="Preferencias de Xournal++"
+            className="p-1 rounded text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
-      {/* File I/O: Open, Annotate PDF, Save & Export */}
-      <div className="flex items-center gap-1 border-r border-slate-800 pr-2 mr-1">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xopp,.xoj"
-          className="hidden"
-          onChange={handleOpenFile}
-        />
-        <input
-          ref={pdfInputRef}
-          type="file"
-          accept=".pdf"
-          className="hidden"
-          onChange={handleOpenPdf}
-        />
+      {/* ── FILA 2: Herramientas de Dibujo, Formas, Estilos, Colores y Capas ── */}
+      <div className="h-11 px-3 flex items-center justify-between text-xs gap-2 relative z-10">
+        {/* Izquierda: Herramientas de Dibujo + Formas + LaTeX + Geometría + Estilos */}
+        <div className="flex items-center gap-1 shrink-0">
+          {mainTools.map((t) => {
+            const isActive = activeTool === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTool(t.id)}
+                title={t.label}
+                className={`p-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                {t.icon}
+              </button>
+            );
+          })}
 
-        <button
-          onClick={handleOpenXoppPicker}
-          title="Abrir archivo .xopp"
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
-        >
-          <FolderOpen className="w-4 h-4 text-amber-400" />
-          <span className="hidden xl:inline">Abrir</span>
-        </button>
-
-        <button
-          onClick={() => pdfInputRef.current?.click()}
-          title="Anotar archivo PDF"
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
-        >
-          <FileText className="w-4 h-4 text-red-400" />
-          <span className="hidden xl:inline">PDF</span>
-        </button>
-
-        <button
-          onClick={handleSaveFile}
-          title="Guardar archivo .xopp"
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
-        >
-          <Download className="w-4 h-4 text-green-400" />
-          <span className="hidden xl:inline">Guardar</span>
-        </button>
-
-        {/* Advanced Export Button */}
-        <button
-          onClick={toggleExportModal}
-          title="Exportación avanzada (PDF, PNG, SVG con opciones de rango y DPI)"
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
-        >
-          <FileDown className="w-4 h-4 text-blue-400" />
-          <span className="hidden xl:inline">Exportar</span>
-        </button>
-      </div>
-
-      {/* Main Drawing & Navigation Tools */}
-      <div className="flex items-center gap-1">
-        {mainTools.map((t) => {
-          const isActive = activeTool === t.id;
-          return (
+          {/* Formas Dropdown */}
+          <div className="relative">
             <button
-              key={t.id}
-              onClick={() => setActiveTool(t.id)}
-              title={t.label}
-              className={`p-2 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
-                isActive
+              onClick={() => setIsShapesMenuOpen(!isShapesMenuOpen)}
+              title="Herramientas de formas (Línea, Flecha, Rectángulo, Elipse)"
+              className={`p-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
+                isShapeActive
                   ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              {t.icon}
+              <Shapes className="w-4 h-4" />
             </button>
-          );
-        })}
 
-        {/* Shapes Dropdown Tool */}
-        <div className="relative">
+            {isShapesMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsShapesMenuOpen(false)}
+                />
+                <div className="absolute left-0 top-full mt-1.5 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[140px] z-50 animate-fadeIn">
+                  <span className="text-[10px] uppercase text-slate-400 px-2 py-1 font-bold">Formas</span>
+                  {shapeTools.map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => {
+                        setActiveTool(st.id);
+                        setIsShapesMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left hover:bg-slate-700 ${
+                        activeTool === st.id ? 'text-blue-400 font-semibold bg-slate-700/50' : 'text-slate-200'
+                      }`}
+                    >
+                      {st.icon}
+                      <span>{st.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Reconocedor automático de formas */}
           <button
-            onClick={() => setIsShapesMenuOpen(!isShapesMenuOpen)}
-            title="Herramientas de formas (Línea, Flecha, Rectángulo, Elipse)"
-            className={`p-2 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
-              isShapeActive
-                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            onClick={toggleShapeRecognizer}
+            title={
+              shapeRecognizerEnabled
+                ? 'Reconocedor de Formas: ACTIVADO'
+                : 'Reconocedor de Formas: DESACTIVADO'
+            }
+            className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+              shapeRecognizerEnabled
+                ? 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
-            <Shapes className="w-4 h-4" />
+            <Sparkles className="w-4 h-4" />
           </button>
 
-          {isShapesMenuOpen && (
-            <div className="absolute left-0 top-full mt-1 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[140px] z-50">
-              <span className="text-[10px] uppercase text-slate-400 px-2 py-1 font-bold">Formas</span>
-              {shapeTools.map((st) => (
+          {/* Selector de modo borrador: Trazo vs Whiteout */}
+          {activeTool === 'eraser' && (
+            <div className="flex items-center bg-slate-800/90 rounded border border-slate-700 p-0.5 text-[10px] gap-0.5">
+              <button
+                onClick={() => setEraserType('stroke')}
+                title="Borrador de Trazo"
+                className={`px-1.5 py-0.5 rounded transition-all ${
+                  eraserType === 'stroke'
+                    ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Trazo
+              </button>
+              <button
+                onClick={() => setEraserType('whiteout')}
+                title="Borrador Whiteout (Tipp-Ex)"
+                className={`px-1.5 py-0.5 rounded transition-all ${
+                  eraserType === 'whiteout'
+                    ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Whiteout
+              </button>
+            </div>
+          )}
+
+          <div className="h-4 w-[1px] bg-slate-800 mx-1" />
+
+          {/* LaTeX */}
+          <button
+            onClick={toggleLatexModal}
+            title="Insertar fórmula LaTeX (KaTeX)"
+            className="p-1.5 rounded-md text-xs font-medium text-purple-400 hover:bg-slate-800 transition-all"
+          >
+            <Sigma className="w-4 h-4" />
+          </button>
+
+          {/* Escuadra */}
+          <button
+            onClick={() => setGeometryTool(geometryTool === 'setsquare' ? 'none' : 'setsquare')}
+            title="Escuadra interactiva graduada"
+            className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+              geometryTool === 'setsquare'
+                ? 'bg-blue-600/30 text-blue-300 ring-1 ring-blue-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <Triangle className="w-4 h-4" />
+          </button>
+
+          {/* Compás */}
+          <button
+            onClick={() => setGeometryTool(geometryTool === 'compass' ? 'none' : 'compass')}
+            title="Compás interactivo de dibujo"
+            className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+              geometryTool === 'compass'
+                ? 'bg-blue-600/30 text-blue-300 ring-1 ring-blue-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <Compass className="w-4 h-4" />
+          </button>
+
+          {/* Buscar Ctrl+F */}
+          <button
+            onClick={() => toggleSearch()}
+            title="Buscar texto en notas (Ctrl+F)"
+            className="p-1.5 rounded-md text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
+          {/* Controles de Formato de Texto o Estilos de Trazo */}
+          {activeTool === 'text' ? (
+            <div className="flex items-center gap-1 border-l border-slate-800 pl-1.5">
+              <select
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+                className="bg-slate-800 text-slate-200 text-xs rounded border border-slate-700 px-1 py-0.5 focus:outline-none"
+              >
+                <option value="sans-serif">Sans-Serif</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+                <option value="cursive">Cursive</option>
+              </select>
+
+              <select
+                value={fontSize}
+                onChange={(e) => setFontSize(Number(e.target.value))}
+                className="bg-slate-800 text-slate-200 text-xs rounded border border-slate-700 px-1 py-0.5 focus:outline-none"
+              >
+                {[12, 14, 16, 18, 24, 32, 40, 48].map((s) => (
+                  <option key={s} value={s}>{s} pt</option>
+                ))}
+              </select>
+
+              <button
+                onClick={toggleBold}
+                title="Negrita"
+                className={`p-1 rounded text-xs ${isBold ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                <Bold className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={toggleItalic}
+                title="Cursiva"
+                className={`p-1 rounded text-xs ${isItalic ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                <Italic className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={() => setTextAlign('left')}
+                title="Alinear a la izquierda"
+                className={`p-1 rounded text-xs ${textAlign === 'left' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                <AlignLeft className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={() => setTextAlign('center')}
+                title="Centrar texto"
+                className={`p-1 rounded text-xs ${textAlign === 'center' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                <AlignCenter className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={() => setTextAlign('right')}
+                title="Alinear a la derecha"
+                className={`p-1 rounded text-xs ${textAlign === 'right' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                <AlignRight className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 border-l border-slate-800 pl-1.5">
+              <div className="relative">
                 <button
-                  key={st.id}
-                  onClick={() => {
-                    setActiveTool(st.id);
-                    setIsShapesMenuOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left hover:bg-slate-700 ${
-                    activeTool === st.id ? 'text-blue-400 font-semibold bg-slate-700/50' : 'text-slate-200'
-                  }`}
+                  onClick={() => setIsLineStyleMenuOpen(!isLineStyleMenuOpen)}
+                  title={`Estilo de trazo: ${lineStyle}`}
+                  className="px-1.5 py-1 rounded text-xs text-slate-300 hover:bg-slate-800 flex items-center gap-1 font-mono border border-slate-700/60"
                 >
-                  {st.icon}
-                  <span>{st.label}</span>
+                  {lineStyle === 'plain' && '──'}
+                  {lineStyle === 'dash' && '- -'}
+                  {lineStyle === 'dot' && '···'}
+                  {lineStyle === 'dashdot' && '-·-'}
                 </button>
-              ))}
+
+                {isLineStyleMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsLineStyleMenuOpen(false)}
+                    />
+                    <div className="absolute left-0 top-full mt-1.5 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[120px] z-50 animate-fadeIn">
+                      {[
+                        { id: 'plain', label: 'Sólido ──' },
+                        { id: 'dash', label: 'Discontinuo - -' },
+                        { id: 'dot', label: 'Puntos ···' },
+                        { id: 'dashdot', label: 'Punto y raya -·-' },
+                      ].map((ls) => (
+                        <button
+                          key={ls.id}
+                          onClick={() => {
+                            setLineStyle(ls.id as LineStyle);
+                            setIsLineStyleMenuOpen(false);
+                          }}
+                          className={`text-left text-xs px-2 py-1.5 rounded hover:bg-slate-700 ${
+                            lineStyle === ls.id ? 'text-blue-400 font-semibold' : 'text-slate-200'
+                          }`}
+                        >
+                          {ls.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Cap Style Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsCapStyleMenuOpen(!isCapStyleMenuOpen)}
+                  title={`Extremo de trazo (Cap Style): ${capStyle}`}
+                  className="px-1.5 py-1 text-[11px] font-mono rounded text-slate-300 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-1"
+                >
+                  {capStyle === 'round' ? '● Round' : capStyle === 'square' ? '■ Square' : '▌ Butt'}
+                </button>
+
+                {isCapStyleMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsCapStyleMenuOpen(false)}
+                    />
+                    <div className="absolute left-0 top-full mt-1.5 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[105px] z-50 animate-fadeIn">
+                      <span className="text-[9px] uppercase text-slate-400 px-2 py-0.5 font-bold">Cap Style</span>
+                      {(['round', 'butt', 'square'] as LineCap[]).map((cap) => (
+                        <button
+                          key={cap}
+                          onClick={() => {
+                            setCapStyle(cap);
+                            setIsCapStyleMenuOpen(false);
+                          }}
+                          className={`text-left text-xs px-2 py-1.5 rounded hover:bg-slate-700 capitalize ${
+                            capStyle === cap ? 'text-blue-400 font-semibold' : 'text-slate-200'
+                          }`}
+                        >
+                          {cap === 'round' ? '● Redondo' : cap === 'butt' ? '▌ Plano (Butt)' : '■ Cuadrado'}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Relleno */}
+              <button
+                onClick={() => setFillEnabled(!fillEnabled)}
+                title={fillEnabled ? 'Relleno: Activado' : 'Relleno: Desactivado'}
+                className={`p-1.5 rounded text-xs transition-all ${
+                  fillEnabled
+                    ? 'bg-blue-600/30 text-blue-400 border border-blue-500/50'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+              >
+                <PaintBucket className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
         </div>
 
-        {/* Automatic Shape Recognizer Toggle */}
-        <button
-          onClick={toggleShapeRecognizer}
-          title={
-            shapeRecognizerEnabled
-              ? 'Reconocedor de Formas: ACTIVADO (reconoce trazos a figuras vectoriales)'
-              : 'Reconocedor de Formas: DESACTIVADO'
-          }
-          className={`p-2 rounded-md text-xs font-medium transition-all ${
-            shapeRecognizerEnabled
-              ? 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-        </button>
+        {/* Derecha: Selección + Grosor + Paleta de Colores + Capas */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Barra de Selección activa */}
+          {selectedStrokeIds.length > 0 && (
+            <div className="flex items-center gap-1 bg-blue-950/60 border border-blue-500/40 rounded px-1.5 py-0.5 animate-fadeIn">
+              <span className="text-[10px] text-blue-300 font-mono mr-1">{selectedStrokeIds.length} sel.</span>
+              <button
+                onClick={bringSelectedToFront}
+                title="Traer al frente"
+                className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
+              >
+                <ArrowUp className="w-3 h-3" />
+              </button>
+              <button
+                onClick={sendSelectedToBack}
+                title="Enviar al fondo"
+                className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
+              >
+                <ArrowDown className="w-3 h-3" />
+              </button>
+              <button
+                onClick={copySelection}
+                title="Copiar (Ctrl+C)"
+                className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
+              <button
+                onClick={cutSelection}
+                title="Cortar (Ctrl+X)"
+                className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
+              >
+                <Scissors className="w-3 h-3" />
+              </button>
+              <button
+                onClick={deleteSelectedStrokes}
+                title="Eliminar seleccionados (Supr)"
+                className="p-1 hover:bg-red-500/20 text-red-400 rounded"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          )}
 
-        {/* Eraser Mode Quick Selector (Stroke vs Whiteout) */}
-        {activeTool === 'eraser' && (
-          <div className="flex items-center bg-slate-800/90 rounded border border-slate-700 p-0.5 text-[10px] gap-0.5 ml-1">
-            <button
-              onClick={() => setEraserType('stroke')}
-              title="Borrador de Trazo: elimina trazos completos al tocarlos"
-              className={`px-1.5 py-0.5 rounded transition-all ${
-                eraserType === 'stroke'
-                  ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Trazo
-            </button>
-            <button
-              onClick={() => setEraserType('whiteout')}
-              title="Borrador Whiteout: pinta en blanco opaco (tipp-ex)"
-              className={`px-1.5 py-0.5 rounded transition-all ${
-                eraserType === 'whiteout'
-                  ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Whiteout
-            </button>
-          </div>
-        )}
+          {/* Grosor de trazo */}
+          <StrokeWidthPicker />
 
-        {/* LaTeX Math Formula Button */}
-        <button
-          onClick={toggleLatexModal}
-          title="Insertar fórmula LaTeX (KaTeX)"
-          className="p-2 rounded-md text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
-        >
-          <Sigma className="w-4 h-4 text-purple-400" />
-        </button>
+          {/* Paleta de Colores */}
+          <ColorPalette />
 
-        {/* Geometry Drafting Tools: Setsquare & Compass */}
-        <button
-          onClick={() => setGeometryTool(geometryTool === 'setsquare' ? 'none' : 'setsquare')}
-          title="Escuadra interactiva graduada (Setsquare)"
-          className={`p-2 rounded-md text-xs font-medium transition-all ${
-            geometryTool === 'setsquare'
-              ? 'bg-blue-600/30 text-blue-300 ring-1 ring-blue-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
-        >
-          <Triangle className="w-4 h-4" />
-        </button>
+          <div className="h-4 w-[1px] bg-slate-800 mx-0.5" />
 
-        <button
-          onClick={() => setGeometryTool(geometryTool === 'compass' ? 'none' : 'compass')}
-          title="Compás interactivo de dibujo"
-          className={`p-2 rounded-md text-xs font-medium transition-all ${
-            geometryTool === 'compass'
-              ? 'bg-blue-600/30 text-blue-300 ring-1 ring-blue-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
-        >
-          <Compass className="w-4 h-4" />
-        </button>
-
-        {/* Search in Annotations Button */}
-        <button
-          onClick={() => toggleSearch()}
-          title="Buscar texto en notas (Ctrl+F)"
-          className="p-2 rounded-md text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all"
-        >
-          <Search className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Text tool formatting toolbar (when activeTool === 'text') */}
-      {activeTool === 'text' ? (
-        <div className="flex items-center gap-1.5 border-l border-slate-800 pl-2">
-          <select
-            value={fontFamily}
-            onChange={(e) => setFontFamily(e.target.value)}
-            className="bg-slate-800 text-slate-200 text-xs rounded border border-slate-700 px-1.5 py-1 focus:outline-none"
-          >
-            <option value="sans-serif">Sans-Serif</option>
-            <option value="serif">Serif</option>
-            <option value="monospace">Monospace</option>
-            <option value="cursive">Cursive</option>
-          </select>
-
-          <select
-            value={fontSize}
-            onChange={(e) => setFontSize(Number(e.target.value))}
-            className="bg-slate-800 text-slate-200 text-xs rounded border border-slate-700 px-1 py-1 focus:outline-none"
-          >
-            {[12, 14, 16, 18, 24, 32, 40, 48].map((s) => (
-              <option key={s} value={s}>{s} pt</option>
-            ))}
-          </select>
-
+          {/* Panel de Capas */}
           <button
-            onClick={toggleBold}
-            title="Negrita"
-            className={`p-1.5 rounded text-xs ${isBold ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
-          >
-            <Bold className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={toggleItalic}
-            title="Cursiva"
-            className={`p-1.5 rounded text-xs ${isItalic ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
-          >
-            <Italic className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="h-4 w-[1px] bg-slate-700 mx-0.5" />
-
-          <button
-            onClick={() => setTextAlign('left')}
-            title="Alinear a la izquierda"
-            className={`p-1.5 rounded text-xs ${textAlign === 'left' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
-          >
-            <AlignLeft className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => setTextAlign('center')}
-            title="Centrar texto"
-            className={`p-1.5 rounded text-xs ${textAlign === 'center' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
-          >
-            <AlignCenter className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => setTextAlign('right')}
-            title="Alinear a la derecha"
-            className={`p-1.5 rounded text-xs ${textAlign === 'right' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
-          >
-            <AlignRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        /* Line Styles & Fill Controls */
-        <div className="flex items-center gap-1 border-l border-slate-800 pl-1">
-          <div className="relative">
-            <button
-              onClick={() => setIsLineStyleMenuOpen(!isLineStyleMenuOpen)}
-              title={`Estilo de trazo: ${lineStyle}`}
-              className="px-2 py-1.5 rounded text-xs text-slate-300 hover:bg-slate-800 flex items-center gap-1 font-mono"
-            >
-              {lineStyle === 'plain' && '──'}
-              {lineStyle === 'dash' && '- -'}
-              {lineStyle === 'dot' && '···'}
-              {lineStyle === 'dashdot' && '-·-'}
-            </button>
-
-            {isLineStyleMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[120px] z-50">
-                {[
-                  { id: 'plain', label: 'Sólido ──' },
-                  { id: 'dash', label: 'Discontinuo - -' },
-                  { id: 'dot', label: 'Puntos ···' },
-                  { id: 'dashdot', label: 'Punto y raya -·-' },
-                ].map((ls) => (
-                  <button
-                    key={ls.id}
-                    onClick={() => {
-                      setLineStyle(ls.id as LineStyle);
-                      setIsLineStyleMenuOpen(false);
-                    }}
-                    className={`text-left text-xs px-2 py-1.5 rounded hover:bg-slate-700 ${
-                      lineStyle === ls.id ? 'text-blue-400 font-semibold' : 'text-slate-200'
-                    }`}
-                  >
-                    {ls.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Cap Style Selector (Round, Butt, Square) */}
-          <div className="relative">
-            <button
-              onClick={() => setIsCapStyleMenuOpen(!isCapStyleMenuOpen)}
-              title={`Extremo de trazo (Cap Style): ${capStyle}`}
-              className="px-1.5 py-1 text-[11px] font-mono rounded text-slate-300 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-1"
-            >
-              {capStyle === 'round' ? '● Round' : capStyle === 'square' ? '■ Square' : '▌ Butt'}
-            </button>
-
-            {isCapStyleMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 flex flex-col bg-slate-800 border border-slate-700 shadow-2xl rounded-md p-1 min-w-[105px] z-50">
-                <span className="text-[9px] uppercase text-slate-400 px-2 py-0.5 font-bold">Cap Style</span>
-                {(['round', 'butt', 'square'] as LineCap[]).map((cap) => (
-                  <button
-                    key={cap}
-                    onClick={() => {
-                      setCapStyle(cap);
-                      setIsCapStyleMenuOpen(false);
-                    }}
-                    className={`text-left text-xs px-2 py-1.5 rounded hover:bg-slate-700 capitalize ${
-                      capStyle === cap ? 'text-blue-400 font-semibold' : 'text-slate-200'
-                    }`}
-                  >
-                    {cap === 'round' ? '● Redondo' : cap === 'butt' ? '▌ Plano (Butt)' : '■ Cuadrado'}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setFillEnabled(!fillEnabled)}
-            title={fillEnabled ? 'Relleno: Activado' : 'Relleno: Desactivado'}
-            className={`p-2 rounded text-xs transition-all ${
-              fillEnabled
-                ? 'bg-blue-600/30 text-blue-400 border border-blue-500/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            onClick={toggleLayersPanel}
+            title="Panel de capas"
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border transition-all ${
+              isLayersPanelOpen
+                ? 'bg-blue-600/30 text-blue-400 border-blue-500/50'
+                : 'text-slate-300 hover:bg-slate-800 border-slate-800'
             }`}
           >
-            <PaintBucket className="w-4 h-4" />
+            <Layers className="w-3.5 h-3.5" />
+            <span>Capas</span>
           </button>
         </div>
-      )}
-
-      {/* Thickness & Color Pickers */}
-      <div className="flex items-center gap-2">
-        <StrokeWidthPicker />
-        <ColorPalette />
-      </div>
-
-      {/* Layers Panel Toggle Button */}
-      <button
-        onClick={toggleLayersPanel}
-        title="Panel de capas"
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium border transition-all ${
-          isLayersPanelOpen
-            ? 'bg-blue-600/30 text-blue-400 border-blue-500/50'
-            : 'text-slate-300 hover:bg-slate-800 border-slate-800'
-        }`}
-      >
-        <Layers className="w-4 h-4" />
-        <span className="hidden xl:inline">Capas</span>
-      </button>
-
-      {/* Selection Specific Action Bar */}
-      {selectedStrokeIds.length > 0 && (
-        <div className="flex items-center gap-1 bg-blue-950/60 border border-blue-500/40 rounded px-1.5 py-0.5 animate-fadeIn">
-          <span className="text-[10px] text-blue-300 font-mono mr-1">{selectedStrokeIds.length} sel.</span>
-          <button
-            onClick={bringSelectedToFront}
-            title="Traer al frente"
-            className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={sendSelectedToBack}
-            title="Enviar al fondo"
-            className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
-          >
-            <ArrowDown className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={copySelection}
-            title="Copiar (Ctrl+C)"
-            className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
-          >
-            <Copy className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={cutSelection}
-            title="Cortar (Ctrl+X)"
-            className="p-1 hover:bg-blue-800/50 text-blue-300 rounded"
-          >
-            <Scissors className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={deleteSelectedStrokes}
-            title="Eliminar seleccionados (Supr)"
-            className="p-1 hover:bg-red-500/20 text-red-400 rounded"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Undo, Redo, Background, Clear, Add Page, Zoom */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={undo}
-          disabled={!canUndo}
-          title="Deshacer (Ctrl+Z)"
-          className="p-2 rounded text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all"
-        >
-          <Undo2 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={redo}
-          disabled={!canRedo}
-          title="Rehacer (Ctrl+Y)"
-          className="p-2 rounded text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all"
-        >
-          <Redo2 className="w-4 h-4" />
-        </button>
-
-        <div className="h-5 w-[1px] bg-slate-800 mx-1" />
-
-        {/* Background selector */}
-        {currentPage && (
-          <div className="relative group">
-            <button
-              title="Cambiar fondo de página"
-              className="flex items-center gap-1 p-2 rounded text-slate-300 hover:bg-slate-800 hover:text-white transition-all text-xs"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-            <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col bg-slate-800 border border-slate-700 shadow-xl rounded-md p-1 min-w-[155px] z-50">
-              <span className="text-[10px] uppercase text-slate-400 px-2 py-1 font-bold">Fondo de página</span>
-              {[
-                { id: 'lined', label: 'Rayado' },
-                { id: 'graph', label: 'Cuadriculado' },
-                { id: 'dotted', label: 'Puntos' },
-                { id: 'plain', label: 'En blanco' },
-                { id: 'isodotted', label: 'Isométrico (Puntos)' },
-                { id: 'isograph', label: 'Isométrico (Líneas)' },
-                { id: 'staves', label: 'Pentagrama Musical' },
-              ].map((bg) => (
-                <button
-                  key={bg.id}
-                  onClick={() => setPageBackground(activePageIndex, bg.id as PageBackgroundType)}
-                  className={`text-left text-xs px-2 py-1.5 rounded hover:bg-slate-700 ${
-                    currentPage.background.type === bg.id ? 'text-blue-400 font-semibold' : 'text-slate-200'
-                  }`}
-                >
-                  {bg.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Paper & Template Configuration Button */}
-        <button
-          onClick={togglePageSettingsModal}
-          title="Configuración de tamaño de papel y plantilla"
-          className="p-2 rounded text-slate-300 hover:bg-slate-800 hover:text-blue-400 transition-all text-xs"
-        >
-          <Sliders className="w-4 h-4" />
-        </button>
-
-        {/* Clear Page */}
-        <button
-          onClick={clearActivePage}
-          title="Limpiar página actual"
-          className="p-2 rounded text-slate-400 hover:bg-red-500/20 hover:text-red-400 transition-all"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-
-        {/* Add Page */}
-        <button
-          onClick={() => addNewPage(currentPage?.background.type || 'lined')}
-          title="Añadir nueva página"
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 transition-all border border-slate-700"
-        >
-          <FilePlus className="w-3.5 h-3.5 text-blue-400" />
-          <span className="hidden xl:inline">+ Página</span>
-        </button>
-
-        <div className="h-5 w-[1px] bg-slate-800 mx-1" />
-
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-0.5 bg-slate-800/80 rounded border border-slate-700 px-1 py-0.5">
-          <button
-            onClick={() => setZoom(zoom - 0.1)}
-            title="Reducir zoom"
-            className="p-1 hover:text-white text-slate-400 rounded"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setZoom(1.0)}
-            title="Restablecer zoom a 100%"
-            className="text-xs px-1 text-slate-300 font-mono hover:text-white"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            onClick={() => setZoom(zoom + 0.1)}
-            title="Aumentar zoom"
-            className="p-1 hover:text-white text-slate-400 rounded"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setZoom(1.0)}
-            title="Restablecer vista"
-            className="p-1 hover:text-white text-slate-400 rounded ml-0.5"
-          >
-            <RotateCcw className="w-3 h-3" />
-          </button>
-        </div>
-
-        <div className="h-5 w-[1px] bg-slate-800 mx-1" />
-
-        {/* Page Navigation History */}
-        <div className="flex items-center bg-slate-800/60 rounded border border-slate-700 p-0.5 gap-0.5">
-          <button
-            onClick={jumpBack}
-            title="Historial: Página anterior visitada (Alt+←)"
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={jumpForward}
-            title="Historial: Página siguiente visitada (Alt+→)"
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={jumpToPrevAnnotatedPage}
-            title="Saltar a página anterior con anotaciones"
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
-          >
-            <SkipBack className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={jumpToNextAnnotatedPage}
-            title="Saltar a siguiente página con anotaciones"
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
-          >
-            <SkipForward className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="h-5 w-[1px] bg-slate-800 mx-1" />
-
-        {/* View Modes: Paired Pages & Presentation Mode */}
-        <button
-          onClick={toggleViewMode}
-          title={viewMode === 'paired' ? 'Vista: 2 páginas emparejadas (Libro)' : 'Vista: 1 sola página vertical'}
-          className={`p-2 rounded text-xs transition-all ${
-            viewMode === 'paired'
-              ? 'bg-blue-600/30 text-blue-400 ring-1 ring-blue-500'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
-        >
-          <Columns2 className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={togglePresentationMode}
-          title="Modo Presentación (F5): oculta barras y maximiza espacio de pantalla"
-          className={`p-2 rounded text-xs transition-all ${
-            isPresentationMode
-              ? 'bg-amber-600/30 text-amber-300 ring-1 ring-amber-500'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
-        >
-          <Presentation className="w-4 h-4" />
-        </button>
-
-        {/* Audio Recording / Voice Notes */}
-        <button
-          onClick={toggleAudioRecorder}
-          title="Notas de voz / Grabador de audio para esta página"
-          className={`p-2 rounded text-xs transition-all ${
-            isAudioRecorderOpen
-              ? 'bg-red-600/30 text-red-400 ring-1 ring-red-500'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
-        >
-          <Mic className="w-4 h-4" />
-        </button>
-
-        {/* JavaScript Plugins Modal */}
-        <button
-          onClick={togglePluginsModal}
-          title="Complementos y Plugins JavaScript"
-          className="p-2 rounded text-slate-400 hover:bg-slate-800 hover:text-purple-400 transition-all text-xs"
-        >
-          <Puzzle className="w-4 h-4" />
-        </button>
-
-        {/* Preferences / Settings Modal */}
-        <button
-          onClick={togglePreferences}
-          title="Preferencias de Xournal++ (Sensibilidad de presión, botones de lápiz, guardado automático)"
-          className="p-2 rounded text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-xs"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
       </div>
     </header>
   );

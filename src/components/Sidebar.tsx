@@ -29,7 +29,12 @@ const paperTypes: { id: PageBackgroundType; label: string }[] = [
 ];
 
 export const Sidebar: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [isPaperMenuOpen, setIsPaperMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'pages' | 'bookmarks'>('pages');
 

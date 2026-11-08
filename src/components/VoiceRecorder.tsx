@@ -108,7 +108,7 @@ export const VoiceRecorder: React.FC = () => {
   if (!isAudioRecorderOpen) return null;
 
   return (
-    <div className="absolute top-16 right-6 z-40 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-3.5 text-slate-100 text-xs w-72 animate-fadeIn">
+    <div className="absolute top-16 right-2 sm:right-6 z-40 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-3.5 text-slate-100 text-xs w-72 max-w-[calc(100vw-1rem)] animate-fadeIn">
       <div className="flex items-center justify-between pb-2 border-b border-slate-800">
         <div className="flex items-center gap-1.5 font-semibold text-xs">
           <Volume2 className="w-4 h-4 text-purple-400" />

@@ -57,7 +57,7 @@ export const LayersPanel: React.FC = () => {
   };
 
   return (
-    <aside className="absolute right-3 top-16 w-72 bg-slate-900/95 backdrop-blur border border-slate-700/80 rounded-xl shadow-2xl p-3 z-40 select-none animate-fadeIn text-slate-100 flex flex-col gap-2.5">
+    <aside className="absolute right-2 sm:right-3 top-16 w-72 max-w-[calc(100vw-1rem)] bg-slate-900/95 backdrop-blur border border-slate-700/80 rounded-xl shadow-2xl p-3 z-40 select-none animate-fadeIn text-slate-100 flex flex-col gap-2.5">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
         <div className="flex items-center gap-2">

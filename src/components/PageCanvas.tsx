@@ -1274,26 +1274,50 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
     erasedStrokesMapRef.current.clear();
   };
 
-  const cursorClass =
-    activeTool === 'hand'
-      ? 'cursor-grab active:cursor-grabbing'
-      : activeTool === 'verticalSpace'
-      ? 'cursor-ns-resize'
-      : activeTool === 'selectRect' || activeTool === 'selectRegion'
-      ? 'cursor-default'
-      : activeTool === 'text'
-      ? 'cursor-text'
-      : activeTool === 'pen' ||
-        activeTool === 'highlighter' ||
-        activeTool === 'line' ||
-        activeTool === 'arrow' ||
-        activeTool === 'doubleArrow' ||
-        activeTool === 'rect' ||
-        activeTool === 'ellipse'
-      ? 'cursor-crosshair'
-      : activeTool === 'eraser'
-      ? 'cursor-cell'
-      : 'cursor-default';
+  const getCustomCursor = (): string => {
+    if (activeTool === 'pen') {
+      // Xournal++ desktop dot cursor: circular point with current pen color and high-contrast outline
+      const isWhite = penSettings.color.toLowerCase() === '#ffffff' || penSettings.color.toLowerCase() === '#fff';
+      const border = isWhite ? '#000000' : '#ffffff';
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3" fill="${penSettings.color}" stroke="${border}" stroke-width="1.2"/><circle cx="8" cy="8" r="0.8" fill="${border}"/></svg>`;
+      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 8 8, crosshair`;
+    }
+    if (activeTool === 'highlighter') {
+      // Highlighter disc cursor
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.5" fill="${highlighterSettings.color}" fill-opacity="0.6" stroke="#111111" stroke-width="1.2"/><circle cx="11" cy="11" r="1.2" fill="#111111"/></svg>`;
+      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 11 11, crosshair`;
+    }
+    if (activeTool === 'eraser') {
+      // Exact Xournal++ desktop eraser cursor: white square with black border and red center cross
+      const sz = Math.max(16, Math.min(32, Math.round(eraserWidth * 1.2)));
+      const half = Math.round(sz / 2);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}"><rect x="1" y="1" width="${sz - 2}" height="${sz - 2}" rx="2" fill="#ffffff" fill-opacity="0.95" stroke="#000000" stroke-width="1.5"/><line x1="${half - 3}" y1="${half}" x2="${half + 3}" y2="${half}" stroke="#ef4444" stroke-width="1.5"/><line x1="${half}" y1="${half - 3}" x2="${half}" y2="${half + 3}" stroke="#ef4444" stroke-width="1.5"/></svg>`;
+      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${half} ${half}, cell`;
+    }
+    if (activeTool === 'hand') {
+      return 'grab';
+    }
+    if (activeTool === 'verticalSpace') {
+      return 'ns-resize';
+    }
+    if (activeTool === 'text') {
+      return 'text';
+    }
+    if (
+      activeTool === 'line' ||
+      activeTool === 'arrow' ||
+      activeTool === 'doubleArrow' ||
+      activeTool === 'rect' ||
+      activeTool === 'ellipse'
+    ) {
+      // Precision crosshair with blue center dot
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19"><line x1="9.5" y1="1" x2="9.5" y2="7" stroke="#111111" stroke-width="1.2"/><line x1="9.5" y1="12" x2="9.5" y2="18" stroke="#111111" stroke-width="1.2"/><line x1="1" y1="9.5" x2="7" y2="9.5" stroke="#111111" stroke-width="1.2"/><line x1="12" y1="9.5" x2="18" y2="9.5" stroke="#111111" stroke-width="1.2"/><circle cx="9.5" cy="9.5" r="1.5" fill="#2563eb"/></svg>`;
+      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 9.5 9.5, crosshair`;
+    }
+    return 'default';
+  };
+
+  const cursorStyle = getCustomCursor();
 
   return (
     <div
@@ -1327,8 +1351,8 @@ const PageCanvasComponent: React.FC<PageCanvasProps> = ({ page, pageIndex }) => 
       {/* Layer 2: Live Inking, Shapes & Marquee Draft Canvas */}
       <canvas
         ref={activeCanvasRef}
-        style={{ touchAction: 'none' }}
-        className={`absolute inset-0 touch-none ${cursorClass} rounded-sm`}
+        style={{ touchAction: 'none', cursor: cursorStyle }}
+        className="absolute inset-0 touch-none rounded-sm"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
